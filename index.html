@@ -10,11 +10,27 @@
 		body {
 			overflow: hidden;
 		}
+
+		.source {
+			position: absolute;
+			top: 0;
+			left: 0;
+			display: block;
+			font-family: monospace;
+			padding: 10px 16px;
+			color: #fff;
+			font-size: 12px;
+		}
+		.source:hover,
+		.source:active {
+			color: #888;
+		}
 	</style>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/4.5.1/pixi.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.5/dat.gui.min.js"></script>
 </head>
-<body>	
+<body>
+	<a href="https://github.com/ebhoren/pixijs-spirograph" class="source">View on GitHub</a>
 	<script src="./index.js"></script>
 </body>
 </html>

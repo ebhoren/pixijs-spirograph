@@ -2,22 +2,27 @@
   "name": "pixijs-spirograph",
   "version": "1.0.0",
   "description": "",
+  "homepage": "https://github.com/ebhoren/pixijs-spirograph",
   "main": "index.js",
   "dependencies": {
-    "animejs": "^2.2.0",
+    "bezier-easing": "^2.0.3",
     "color-interpolate": "^1.0.2",
-    "dat.gui": "^0.7.0",
-    "mathjs": "^3.20.1",
     "parcel-bundler": "^1.5.0",
     "rgb-hex": "^2.1.0"
   },
   "devDependencies": {},
   "scripts": {
     "dev": "./node_modules/.bin/parcel index.html",
-    "build": "./node_modules/.bin/parcel build index.html --public-url ./ --no-cache --no-minify",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "./node_modules/.bin/parcel build index.html --public-url ./ --no-cache --no-minify"
   },
   "keywords": [],
-  "author": "",
+  "author": {
+    "name": "Dominic Mercier",
+    "email": "d.mercier84@gmail.com",
+    "url": "https://dominic-mercier.com"
+  },
+  "bugs": {
+    "url": "https://github.com/ebhoren/pixijs-spirograph/issues"
+  },
   "license": "ISC"
 }

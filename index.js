@@ -1,6 +1,6 @@
 import interpolate from 'color-interpolate';
 import rgbHex from 'rgb-hex';
-import anime from 'animejs';
+import BezierEasing from 'bezier-easing';
 import drawRoundedPolygon from './utils/pixijs-roundedPolygon';
 
 const aqua = '#31cbc1',
@@ -22,6 +22,7 @@ const params = {
 	endColor: aqua,
 	startAngle: 0, 
 	arc: 30,
+	animate: true,
 	shadowAlpha: 0.15,
 	shadowAngle: 0,
 	shadowArc: 30,
@@ -62,6 +63,12 @@ const renderer 		= app.renderer;
 const items 		= [];
 const shadowItems 	= [];
 const pool 			= [];
+const shadowsEnabled = true;
+
+var scaleDelta 		= 0;
+var scaleFactor 	= 0;
+var rotateDelta 	= 0;
+var timeDelta 		= 0;
 
 document.body.appendChild(app.view);
 app.stage.addChild(shadows, container);
@@ -75,10 +82,13 @@ const gui = new dat.GUI({name: 'Params'});
 	  gui.add(params, 'arc', 0, 180).onChange( refreshGraphics );
 	  gui.addColor(params, 'startColor').onChange( refreshGraphics );
 	  gui.addColor(params, 'endColor').onChange( refreshGraphics );
+	  gui.add(params, 'animate').onChange( resetAnimation );
 
-const shadow = gui.addFolder('Shadow');
-	  shadow.add(params.shadow, 'alpha', 0, 1, 0.05).onChange( refreshGraphics );
-	  shadow.add(params.shadow, 'scale', 0.1, 2, 0.05).onChange( refreshGraphics );
+if( shadowsEnabled ) {
+	const shadow = gui.addFolder('Shadow');
+		  shadow.add(params.shadow, 'alpha', 0, 1, 0.05).onChange( refreshGraphics );
+		  shadow.add(params.shadow, 'scale', 0.1, 2, 0.05).onChange( refreshGraphics );
+}
 
 const ellipse = gui.addFolder('Ellipse');
 	  ellipse.add(params.ellipse, 'ratio', -1, 1, 0.1).onChange( refreshGraphics );
@@ -214,90 +224,145 @@ function refreshGraphics() {
 	const colormap = interpolate([startColor, endColor]);
 	const shadowScale = params.shadow.scale;
 
-	shadows.alpha = params.shadow.alpha;
+	if( shadowsEnabled ) shadows.alpha = params.shadow.alpha;
 
 	for(let i = 0; i<quantity; i++) {
 		let angle  		= startAngle + arc * (i / quantity);
 		let color 		= '0x' + rgbHex( colormap((i + 1) / quantity) );
 
 		// get current item or used pooled one if necessary
-		let graphics 	= items[i] || pool.shift();
-		let shadow 		= shadowItems[i] || pool.shift();
+		let shadow;
+		let graphics = items[i] || pool.shift();
+
+		if( shadowsEnabled ) shadow = shadowItems[i] || pool.shift();
 
 		// if current item doesn't exists and pool is empty, create a new one
 		if( !graphics ) {
 			graphics = new PIXI.Graphics();
 			container.addChild(graphics);
 
-			items.push(graphics);
+			items.push({el: graphics, angle: angle * PIXI.DEG_TO_RAD});
+		}
+		else {
+			graphics.angle = angle * PIXI.DEG_TO_RAD;
+			graphics = graphics.el;
 		}
 
 		// if current shadow doesn't exists and pool is empty, create a new one
-		if( !shadow ) {
-			shadow = new PIXI.Graphics();
-			shadows.addChild(shadow);
+		if( shadowsEnabled ) {
+			if( !shadow ) {
+				shadow = new PIXI.Graphics();
+				shadows.addChild(shadow);
 
-			shadowItems.push(shadow);
+				shadowItems.push({el: shadow, angle: angle * PIXI.DEG_TO_RAD});
+			}
+			else {
+				shadow.angle = angle * PIXI.DEG_TO_RAD;
+				shadow = shadow.el;
+			}
 		}
 
 		// draw graphics
 		if( shape === 'Rectangle') {
 			drawRoundedRect(graphics, size, angle, color);
-			drawRoundedRect(shadow, size * shadowScale, angle, color);
+			if( shadowsEnabled ) drawRoundedRect(shadow, size * shadowScale, angle, color);
 		}
 		else if ( shape === 'Pentagon' ) {
 			drawPentagone(graphics, size, angle, color);
-			drawPentagone(shadow, size * shadowScale, angle, color);
+			if( shadowsEnabled ) drawPentagone(shadow, size * shadowScale, angle, color);
 		}
 		else if ( shape === 'Ellipse' ) {
 			drawEllipse(graphics, size * params.ellipse.ratio, size, angle, color);
-			drawEllipse(shadow, size * shadowScale * params.ellipse.ratio, size * shadowScale, angle, color);
+			if( shadowsEnabled ) drawEllipse(shadow, size * shadowScale * params.ellipse.ratio, size * shadowScale, angle, color);
 		}
 		else if ( shape === 'Triangle' ) {
 			drawTriangle(graphics, size, angle, color);
-			drawTriangle(shadow, size * shadowScale, angle, color);
+			if( shadowsEnabled ) drawTriangle(shadow, size * shadowScale, angle, color);
 		}
 		else if ( shape === 'Square' ) {
 			drawSquare(graphics, size, angle, color, params.square.radius);
-			drawSquare(shadow, size * shadowScale, angle, color, params.square.radius * shadowScale);
+			if( shadowsEnabled ) drawSquare(shadow, size * shadowScale, angle, color, params.square.radius * shadowScale);
 		}
 		else if ( shape === 'Petal' ) {
 			drawPetal(graphics, size, angle, color);
-			drawPetal(shadow, size * shadowScale, angle, color);
+			if( shadowsEnabled ) drawPetal(shadow, size * shadowScale, angle, color);
 		}
 	}
 
 	// pool useless graphics
 	for(let i = items.length, n = quantity; i>n; i--) {
 		let graphics = items.pop();
-		let shadow = shadowItems.pop();
+		let shadow;
 
-		pool.push(graphics, shadow);
+		if( shadowsEnabled ) shadow = shadowItems.pop();
 
-		container.removeChild( graphics );
-		shadows.removeChild( shadow );
-	}	
-};
-/*
-function animateRectangles() {
-	app.ticker.add(() => {
-		delta += 0.08;
-		//trails.unshift( 35 * Math.cos( delta ) );
-		trails.unshift( delta );
+		container.removeChild( graphics.el );
+		pool.push(graphics);
 
-		if( trails.length > settings.num_rectangles ) trails.pop();
-
-		for(var i = 0, n = settings.num_rectangles, rect, graphic; i<n; i++) {
-			rect 		= rectangles[i];
-			graphic 	= rect.graphics;
-			//graphic.y 	= 35 * Math.cos( trails[i] );
-			graphic.rotation = rect.rotation + PIXI.DEG_TO_RAD * 45 * Math.cos( trails[i] );
+		if( shadowsEnabled ) {
+			shadows.removeChild( shadow.el );
+			pool.push( shadow );
 		}
-	});
-}
-*/
+	}
+};
 
-//animateRectangles();
+function animate() {
+	window.requestAnimationFrame(animate);
+
+	if( params.animate === false ) {
+		//shadows.scale.x = container.scale.x = 
+		//shadows.scale.y = container.scale.y = 1;
+
+		return;
+	}
+
+	//scaleFactor += 0.1;
+	//scaleDelta += 0.1 + Math.sin(scaleFactor) * 0.09;
+	scaleDelta += 0.05;
+
+	shadows.scale.x = container.scale.x = 
+	shadows.scale.y = container.scale.y = 1 + Math.cos(scaleDelta) * 0.1;
+};
+function animate2() {
+	window.requestAnimationFrame(animate2);
+	if( params.animate === false ) return;
+
+	timeDelta += 0.05;
+	const t = (Math.sin(timeDelta) + 1) / 2;
+	const n = items.length;
+
+	for(var i = 0, graphic, shadow, ease, p, rotation; i<n; i++) {
+
+		graphic 	= items[i];
+		p 			= (i + 1) / n;
+		ease 		= BezierEasing(0.5 - p * 0.5, 0.0, 0.5 + p * 0.5, 1.0);
+		rotation 	= graphic.angle + ease(t) * 120 * PIXI.DEG_TO_RAD;
+
+		graphic.el.rotation = rotation;
+
+		if( shadowsEnabled ) {
+			shadow = shadowItems[i];
+			shadow.el.rotation = rotation;
+		}
+	};
+};
+function resetAnimation() {
+	if( params.animate === true ) return;
+
+	shadows.scale.x = container.scale.x = 
+	shadows.scale.y = container.scale.y = 1.0;
+
+	for(var i = 0, n = items.length, graphic, shadow; i<n; i++) {
+
+		graphic = items[i];
+		graphic.el.rotation = graphic.angle;
+
+		if( shadowsEnabled ) {
+			shadow = shadowItems[i];
+			shadow.el.rotation = graphic.angle;
+		}
+	};
+};
 
 
 function onResize() {
@@ -308,16 +373,16 @@ function onResize() {
 	container.y = shadows.y = settings.height * 0.5;
 
 	renderer.resize(settings.width, settings.height);
-}
-
+};
 window.addEventListener('resize', onResize);
 
 
-onShapeChange();
+
+
 onResize();
-
-
-
+onShapeChange();
+animate();
+animate2();
 
 
 if (module.hot) {
